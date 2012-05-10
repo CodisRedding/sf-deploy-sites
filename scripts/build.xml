@@ -1,0 +1,152 @@
+<project name="Deploy an unpackaged set of metadata to your org" 
+         default="deploy" 
+         basedir="." 
+         xmlns:sf="antlib:com.salesforce">
+  
+    <property environment="env" />
+
+    <!-- Deploy task that will deploy all metadata defined in a contract (the package.xml)
+	    This task will deploy 2 times. The first time without the sites dir, and
+         then again with only the sites dir. The reason is that Salesforce has a bug 
+	    in its deployment process when sites metadata is included. -->
+    <target name="deploy" description="deploy metadata">
+
+		    <!-- Delete existing temp deploy direcotry if found. -->
+			<delete includeEmptyDirs="true" quiet="true">
+				<fileset dir="${temp.deploy.dir}"/>
+			</delete>
+    
+		    <!-- Make a new temp deploy directory. -->	
+    		<mkdir dir="${temp.deploy.dir}"/>
+    
+		    <!-- Copy metadata from project src direcory. -->	
+    		<copy todir="${temp.deploy.dir}">
+    			  <fileset dir="${source.code.dir}">
+    			  	  <include name="**/*.*"/>
+    			      <exclude name="**/package.xml"/>
+				      <exclude name="**/Reply.workflow"/>
+    			  	  <exclude name="**/PersonAccount.workflow"/>
+    			  	  <exclude name="**/Question.workflow"/>
+				      <exclude name="**/SocialPost.workflow"/>
+    			  </fileset>
+    		</copy>
+    
+		    <!-- Replace generic environment tokens to the specifc evnironment being deployed to. -->	
+	    	<replace dir="${temp.deploy.dir}/sites" value=".${sf.org.name}" token="[ENVNAME]">
+			     <include name="**/*.site"/>
+		    </replace>
+    
+		    <!-- Copy package.xml (contract) and destructiveChanges.xml to the temp deploy dir. -->	
+    		<copy file="package.xml" todir="${temp.deploy.dir}"/>
+    		<copy file="destructiveChanges.xml" todir="${temp.deploy.dir}"/>
+    
+		    <!-- Salesforce deploy task. -->	
+      		<sf:deploy username="${sf.username}" 
+                 	   password="${sf.password}" 
+                 	   serverurl="${sf.serverurl}" 
+                 	   deployRoot="${temp.deploy.dir}"
+		         	   pollWaitMillis="10000"
+		         	   maxPoll="100"
+                 	   runAllTests="true" />
+    
+		    <!-- Remove temp deployment dir. -->	
+    		<delete includeEmptyDirs="true">
+			     <fileset dir="${temp.deploy.dir}"/>
+			</delete>
+    </target>
+
+    <target name="sites" description="deploy sites only">
+
+		  <!-- Delete existing temp deploy direcotry if found. --> 
+          <delete includeEmptyDirs="true" quiet="true">
+			   <fileset dir="${temp.deploy.dir}"/>
+          </delete>
+
+		  <!-- Make a new temp deploy directory. -->
+          <mkdir dir="${temp.deploy.dir}"/>
+
+		  <!-- Copy the sites metadata to the temp deploy dir. -->
+          <copy todir="${temp.deploy.dir}">
+                 <fileset dir="${source.code.dir}">
+                      <include name="**/*.site"/>
+                 </fileset>
+          </copy>
+
+		  <!-- Replace all generic environment tokens with specific enviroment tokens for the org being deployed to. --> 
+          <replace dir="${temp.deploy.dir}/sites" value=".${sf.org.name}" token="[ENVNAME]">
+               <include name="**/*.site"/>
+          </replace>
+
+		  <!-- Copy package.xml (the contract) and destructiveChanges.xml to the temp deploy dir. -->
+          <copy file="package_sites.xml" todir="${temp.deploy.dir}"/>
+          <copy file="destructiveChanges.xml" todir="${temp.deploy.dir}"/>
+
+		  <!-- Copy the package_sites.cml (the sites contract) to the temp deploy dir. -->
+          <move file="${temp.deploy.dir}/package_sites.xml" tofile="${temp.deploy.dir}/package.xml"/>
+
+		  <!-- Salesforce deploy task. -->
+          <sf:deploy username="${sf.username}"
+                       password="${sf.password}"
+                       serverurl="${sf.serverurl}"
+                       deployRoot="${temp.deploy.dir}"
+                       pollWaitMillis="10000"
+                       maxPoll="100"
+                       runAllTests="false" />
+
+		  <!-- Delete the temp deploy dir. -->
+          <delete includeEmptyDirs="true">
+               <fileset dir="${temp.deploy.dir}"/>
+          </delete>
+    </target>
+
+	
+	<target name="retrieve">
+
+		  <!-- Delete temp retrieve dir. --> 
+		  <delete includeEmptyDirs="true" quiet="true">
+			   <fileset dir="${temp.retrieve.dir}"/>
+		  </delete>
+	
+		  <!-- Make a new temp retrieve dir. -->	
+		  <mkdir dir="${temp.retrieve.dir}"/>
+	
+		  <!-- Salesforce ant retrieve task. -->	
+		  <sf:retrieve username="${sf.username}"
+						 password="${sf.password}"
+						 serverurl="${sf.serverurl}"
+						 retrieveTarget="${temp.retrieve.dir}"
+						 unpackaged="package.xml"/>
+
+		  <!-- Wait a bit for the previous task to complete. -->
+		  <sleep seconds="5"/>
+
+		  <!-- Salesforce ant retrieve task. -->
+		  <sf:retrieve username="${sf.username}"
+						 password="${sf.password}"
+                         serverurl="${sf.serverurl}"
+                         retrieveTarget="${temp.retrieve.dir}"
+						 unpackaged="package_sites.xml"/>
+
+			   
+		  <!-- Replace environment specific tokens with generic tokens. -->	
+		  <replace dir="${temp.retrieve.dir}/sites" value="[ENVNAME]" token=".${sf.org.name}">
+			   <include name="**/*.site"/>
+		  </replace>
+
+		  <!-- Copy all metadata from temp retrieve dir to src dir. -->
+		  <copy todir="${source.code.dir}">
+			   <fileset dir="${temp.retrieve.dir}">
+					<exclude name="**/package.xml"/>
+			   </fileset>
+		  </copy>
+
+		  <!-- Move package.xml (the contract) to the src dir. -->
+ 		  <!--<copy file="./package.xml" tofile="${source.code.dir}/package.xml"/>-->
+		
+		  <!-- Remove temp retrieve dir. -->	
+		  <delete includeEmptyDirs="true">
+			   <fileset dir="${temp.retrieve.dir}"/>
+		  </delete>
+	</target>
+   
+</project>
