@@ -1,7 +1,7 @@
 sf-deploy-sites
 ===============
 
-Deploy your SF org sites between orgs (w/o manually having to create them)
+Deploy your SF org .sites metadata between orgs (w/o manually having to create them)
 
 1. Create a dir in the root of your SF project name scripts (or whatever you want to name it, just update script paths).
 
